@@ -6,8 +6,8 @@ export default function Home() {
       <main className="flex flex-col items-center justify-center gap-6 px-6 text-center">
         {/* Logo */}
         <Image
-          src="/logo.png"
-          alt="Doğuş SPA Logo"
+          src="/meksimlogo.png"
+          alt="Meksim Logo"
           width={220}
           height={80}
           priority

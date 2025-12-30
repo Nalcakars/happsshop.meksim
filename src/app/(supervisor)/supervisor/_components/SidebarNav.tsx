@@ -73,9 +73,9 @@ export default function SidebarNav({
             label: "Müşteriler",
           },
           {
-            id: "partners",
-            href: "/supervisor/partners",
-            label: "Partnerler",
+            id: "accounts",
+            href: "/supervisor/coming-soon",
+            label: "Temsilciler",
           },
         ],
       },
@@ -87,13 +87,8 @@ export default function SidebarNav({
         items: [
           {
             id: "sales-report",
-            href: "/supervisor/reports/coming-soon",
+            href: "/supervisor/coming-soon",
             label: "Satış Raporu",
-          },
-          {
-            id: "commission-report",
-            href: "/supervisor/reports/coming-soon",
-            label: "Hak Ediş Raporu",
           },
         ],
       },
@@ -105,12 +100,12 @@ export default function SidebarNav({
         items: [
           {
             id: "general-settings",
-            href: "/supervisor/settings/coming-soon",
+            href: "/supervisor/coming-soon",
             label: "Genel Ayarlar",
           },
           {
             id: "company-settings",
-            href: "/supervisor/settings/coming-soon",
+            href: "/supervisor/coming-soon",
             label: "Firma Ayarları",
           },
         ],
@@ -164,8 +159,8 @@ export default function SidebarNav({
           onClick={onNavigate}
         >
           <Image
-            src="/logo.png"
-            alt="HappsShop Logo"
+            src="/meksimlogo.png"
+            alt="Meksim Logo"
             width={180}
             height={60}
             priority

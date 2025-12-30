@@ -11,7 +11,7 @@ export default async function SupervisorHome() {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">
-          Doğuş SPA Reçete Sistemine Hoş Geldiniz
+          Meksim Bayi Portalına Hoş Geldiniz
         </h1>
       </div>
     </>

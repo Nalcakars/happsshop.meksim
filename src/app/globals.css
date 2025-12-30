@@ -2,10 +2,10 @@
 
 /* Spot palette (single source of truth) */
 :root {
-  --spot-primary: #845ec2;
-  --spot-secondary: #b39cd0;
-  --spot-surface: #c7eeff;
-  --spot-accent: #00c9a7;
+  --spot-primary: #970e07;
+  --spot-secondary: #aa6b5c;
+  --spot-surface: #ffe6d9;
+  --spot-accent: #56b8d0;
 
   /* App tokens */
   --background: var(--spot-surface);

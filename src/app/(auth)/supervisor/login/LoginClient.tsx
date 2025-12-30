@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-
 export default function LoginClient() {
   const router = useRouter();
   const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "HappsShop";
@@ -60,7 +59,7 @@ export default function LoginClient() {
         <div className="w-full max-w-md">
           <div className="mx-auto mb-4 flex items-center justify-center">
             <Image
-              src="/logo.png"
+              src="/meksimlogo.png"
               alt={`${appName} Logo`}
               width={160}
               height={56}

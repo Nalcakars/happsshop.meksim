@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DOĞUŞ SPA Kozmetik Group",
+  title: "Meksim Bayi Sistemi",
 };
 
 export default function RootLayout({
