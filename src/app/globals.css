@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* Spot palette (single source of truth) */
+:root {
+  --spot-primary: #845ec2;
+  --spot-secondary: #b39cd0;
+  --spot-surface: #c7eeff;
+  --spot-accent: #00c9a7;
+
+  /* App tokens */
+  --background: var(--spot-surface);
+  --foreground: #1f1b2e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* You can use these in Tailwind v4 utilities: bg-[--spot-surface] etc. */
+  --color-spot-primary: var(--spot-primary);
+  --color-spot-secondary: var(--spot-secondary);
+  --color-spot-surface: var(--spot-surface);
+  --color-spot-accent: var(--spot-accent);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* İstersen dark mode’u sonra tasarlarız; şimdilik soft/light sabit kalsın.
+   Eğer dark mode kalsın istersen söyle, ona göre Spot-dark türetelim. */
+/*
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+*/
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
