@@ -1,33 +1,25 @@
 import { NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/auth/session";
+import { apiBaseOrThrow, forward } from "@/app/api/_utils/forward";
 
-type Ctx = { params: Promise<{ id: string; imageId: string }> };
+export async function DELETE(
+  req: Request,
+  ctx: { params: Promise<{ id: string; imageId: string }> }
+) {
+  try {
+    const apiBase = apiBaseOrThrow();
+    const { id, imageId } = await ctx.params;
 
-export async function DELETE(_req: Request, ctx: Ctx) {
-  const { id, imageId } = await ctx.params;
-
-  const apiBase = process.env.API_BASE_URL;
-  if (!apiBase)
-    return NextResponse.json({ message: "API_BASE_URL yok." }, { status: 500 });
-
-  const token = await getAccessToken();
-  if (!token)
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-
-  // ✅ Varsayım: API: DELETE /api/supervisor/products/{id}/images/{imageId}
-  const r = await fetch(
-    `${apiBase}/api/supervisor/products/${id}/images/${imageId}`,
-    {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  );
-
-  const raw = await r.text();
-  return new NextResponse(raw, {
-    status: r.status,
-    headers: {
-      "content-type": r.headers.get("content-type") ?? "application/json",
-    },
-  });
+    return forward(
+      req,
+      `${apiBase}/api/supervisor/products/${id}/images/${imageId}`,
+      {
+        method: "DELETE",
+      }
+    );
+  } catch (e: any) {
+    return NextResponse.json(
+      { message: e?.message ?? "Server error" },
+      { status: 500 }
+    );
+  }
 }

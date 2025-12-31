@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Plus, Search, Trash2, X, AlertTriangle } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Trash2,
+  X,
+  AlertTriangle,
+  FileSpreadsheet,
+} from "lucide-react";
 
 type ProductDto = {
   id: number;
@@ -16,7 +23,6 @@ type ProductDto = {
   categoryIDs: number[];
   brandIDs: number[];
 
-  // ✅ API GetPaged ile geliyor
   stockQuantity?: number | null;
   unitPrice?: number | null;
   currencyID?: number | null;
@@ -106,7 +112,6 @@ function joinNamesFromIds(
   return text.length > 0 ? text : "-";
 }
 
-// Hover preview pozisyonu: görselin yanına aç, ekrandan taşarsa ters tarafa al.
 function getPreviewPos(rect: DOMRect) {
   const gap = 12;
   const w = 320;
@@ -118,14 +123,48 @@ function getPreviewPos(rect: DOMRect) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // sağa sığmıyorsa sola al
   if (left + w > vw - 8) left = rect.left - gap - w;
 
-  // yukarı/aşağı taşmayı engelle
   if (top + h > vh - 8) top = vh - 8 - h;
   if (top < 8) top = 8;
 
   return { left: Math.round(left), top: Math.round(top), w, h };
+}
+
+// ✅ Tüm sayfaları gezerek lookup çek
+async function fetchAllLookup(
+  urlBase: string,
+  pageSize = 500,
+  maxPages = 200
+): Promise<LookupItem[]> {
+  const all: LookupItem[] = [];
+  let page = 1;
+
+  while (page <= maxPages) {
+    const res = await apiGet<any>(
+      `${urlBase}&page=${page}&pageSize=${pageSize}&q=`
+    );
+
+    const items = (res?.items ?? res) as LookupItem[];
+    const list = Array.isArray(items) ? items : [];
+    all.push(...list);
+
+    const totalPages: number | null =
+      typeof res?.totalPages === "number" ? res.totalPages : null;
+
+    // totalPages varsa onu kullan
+    if (totalPages && page >= totalPages) break;
+
+    // totalPages yoksa: pageSize'dan az geldiyse bitti varsay
+    if (!totalPages && list.length < pageSize) break;
+
+    page++;
+  }
+
+  // id bazlı uniq
+  const m = new Map<number, LookupItem>();
+  for (const x of all) if (x?.id != null) m.set(x.id, x);
+  return Array.from(m.values());
 }
 
 export default function ProductsClient() {
@@ -144,13 +183,11 @@ export default function ProductsClient() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // lookups (id->name)
   const [categoryMap, setCategoryMap] = useState<Map<number, string>>(
     new Map()
   );
   const [brandMap, setBrandMap] = useState<Map<number, string>>(new Map());
 
-  // delete modal state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: number;
@@ -158,7 +195,6 @@ export default function ProductsClient() {
   } | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  // ✅ hover preview state
   const [preview, setPreview] = useState<{
     src: string;
     alt: string;
@@ -173,28 +209,29 @@ export default function ProductsClient() {
     return () => clearTimeout(t);
   }, [q]);
 
-  // ✅ lookups (categories + brands)
+  // ✅ lookups (categories + brands) - tüm sayfaları çek
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       try {
-        const [catRes, brRes] = await Promise.all([
-          apiGet<any>(
-            `/api/supervisor/categories?lang=${lang}&page=1&pageSize=500&q=`
-          ),
-          apiGet<any>(
-            `/api/supervisor/brands?lang=${lang}&page=1&pageSize=500&q=`
-          ),
+        const [cats, brs] = await Promise.all([
+          fetchAllLookup(`/api/supervisor/categories?lang=${lang}`),
+          fetchAllLookup(`/api/supervisor/brands?lang=${lang}`),
         ]);
 
-        const cats = (catRes.items ?? catRes) as LookupItem[];
-        const brs = (brRes.items ?? brRes) as LookupItem[];
+        if (cancelled) return;
 
         setCategoryMap(new Map((cats ?? []).map((c) => [c.id, c.name])));
         setBrandMap(new Map((brs ?? []).map((b) => [b.id, b.name])));
       } catch {
-        // tablo yine çalışsın diye sessiz geçiyoruz
+        // sessiz
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [lang]);
 
   async function load(next?: { page?: number; pageSize?: number }) {
@@ -244,7 +281,7 @@ export default function ProductsClient() {
   }
 
   function closeDeleteModal() {
-    if (deletingId) return; // silerken kapatma
+    if (deletingId) return;
     setDeleteOpen(false);
     setDeleteTarget(null);
   }
@@ -259,7 +296,6 @@ export default function ProductsClient() {
     try {
       await apiDelete(`/api/supervisor/products/${id}`);
 
-      // son elemanı sildiysen bir önceki sayfaya düş
       const wasOnlyOneOnPage = items.length === 1;
       const shouldGoPrev = wasOnlyOneOnPage && page > 1;
       const nextPage = shouldGoPrev ? page - 1 : page;
@@ -280,7 +316,6 @@ export default function ProductsClient() {
       onMouseLeave={() => setPreview(null)}
       onScrollCapture={() => setPreview(null)}
     >
-      {/* ✅ Hover preview (fixed overlay) */}
       {preview && (
         <div
           className="pointer-events-none fixed z-[9999] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
@@ -320,6 +355,14 @@ export default function ProductsClient() {
               className="w-full min-w-[260px] rounded-xl border border-black/10 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-[#845ec2]/30 focus:ring-4 focus:ring-[#b39cd0]/25"
             />
           </div>
+
+          <Link
+            href="/supervisor/products/import"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/70 shadow-sm hover:bg-black/[0.03]"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Excel ile Ürün Yükle
+          </Link>
 
           <Link
             href="/supervisor/products/new"
@@ -398,7 +441,6 @@ export default function ProductsClient() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        {/* ✅ Thumbnail + hover preview */}
                         <div
                           className="relative h-10 w-10 overflow-hidden rounded-xl border border-black/10 bg-black/[0.02]"
                           onMouseEnter={(e) => {
@@ -541,7 +583,6 @@ export default function ProductsClient() {
         </div>
       </div>
 
-      {/* Confirm Delete Modal */}
       {deleteOpen && deleteTarget && (
         <div className="fixed inset-0 z-50 grid place-items-center p-4">
           <div

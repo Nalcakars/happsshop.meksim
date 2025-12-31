@@ -1,37 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/auth/session";
+import { NextResponse } from "next/server";
+import { apiBaseOrThrow, forward } from "@/app/api/_utils/forward";
 
-type Params = { id: string; imageId: string };
-
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: Promise<Params> }
+export async function PUT(
+  req: Request,
+  ctx: { params: Promise<{ id: string; imageId: string }> }
 ) {
-  const { id, imageId } = await params;
+  try {
+    const apiBase = apiBaseOrThrow();
+    const { id, imageId } = await ctx.params;
 
-  const apiBase = process.env.API_BASE_URL;
-  if (!apiBase) {
-    return NextResponse.json({ message: "API_BASE_URL yok." }, { status: 500 });
+    return forward(
+      req,
+      `${apiBase}/api/supervisor/products/${id}/images/${imageId}/primary`,
+      {
+        method: "PUT",
+      }
+    );
+  } catch (e: any) {
+    return NextResponse.json(
+      { message: e?.message ?? "Server error" },
+      { status: 500 }
+    );
   }
-
-  const token = await getAccessToken();
-  if (!token) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
-  const r = await fetch(
-    `${apiBase}/api/supervisor/products/${id}/images/${imageId}/primary`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  );
-
-  const raw = await r.text();
-  return new NextResponse(raw, {
-    status: r.status,
-    headers: {
-      "content-type": r.headers.get("content-type") ?? "application/json",
-    },
-  });
 }
