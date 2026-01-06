@@ -27,12 +27,6 @@ async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-const currencyOptions = [
-  { id: 1, code: "TRY" },
-  { id: 2, code: "USD" },
-  { id: 3, code: "EUR" },
-] as const;
-
 export default function ProductCreateClient() {
   const router = useRouter();
   const [lang] = useState<"tr" | "en">("tr");
@@ -55,9 +49,6 @@ export default function ProductCreateClient() {
   const [brandID, setBrandID] = useState<number | null>(null);
 
   const [stockQty, setStockQty] = useState<number>(0);
-  const [unitPrice, setUnitPrice] = useState<number>(0);
-
-  const [currencyID, setCurrencyID] = useState<number>(1);
 
   const [files, setFiles] = useState<File[]>([]);
 
@@ -110,16 +101,13 @@ export default function ProductCreateClient() {
     for (let i = 0; i < filesToUpload.length; i++) {
       const f = filesToUpload[i];
       const form = new FormData();
-      form.append("file", f); // ✅ backend ve route bunu bekliyor
+      form.append("file", f);
 
       await apiJson<any>(
         `/api/supervisor/products/${productId}/images?makePrimary=${
           i === 0 ? "true" : "false"
         }`,
-        {
-          method: "POST",
-          body: form,
-        }
+        { method: "POST", body: form }
       );
     }
   }
@@ -129,6 +117,7 @@ export default function ProductCreateClient() {
     setSaving(true);
 
     try {
+      // ✅ Yeni fiyat kurgusu depo bazlı -> Create ekranında basic price yok.
       const payload = {
         productCode: productCode.trim(),
         sku: sku.trim() || null,
@@ -144,8 +133,10 @@ export default function ProductCreateClient() {
         descriptions: [],
 
         stockQuantity: Number.isFinite(stockQty) ? stockQty : 0,
-        unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
-        currencyID: Number.isFinite(currencyID) ? currencyID : 1,
+
+        // ✅ eskiden vardı, artık null gönderiyoruz (DTO bozulmasın diye)
+        unitPrice: null,
+        currencyID: null,
         vatRate: null,
       };
 
@@ -169,6 +160,7 @@ export default function ProductCreateClient() {
         await uploadImagesOneByOne(Number(newId), files);
       }
 
+      // ✅ ürün oluşturuldu -> fiyatlar Edit ekranındaki Prices tabından girilecek
       router.replace("/supervisor/products");
     } catch (e: any) {
       setErr(e?.message ?? "Hata oluştu.");
@@ -278,42 +270,6 @@ export default function ProductCreateClient() {
                 />
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black/70">
-                    Fiyat
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={unitPrice}
-                    onChange={(e) =>
-                      setUnitPrice(parseFloat(e.target.value || "0"))
-                    }
-                    className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#845ec2]/30 focus:ring-4 focus:ring-[#b39cd0]/25"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black/70">
-                    Para Birimi
-                  </label>
-                  <select
-                    value={currencyID}
-                    onChange={(e) =>
-                      setCurrencyID(parseInt(e.target.value || "1", 10))
-                    }
-                    className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#845ec2]/30 focus:ring-4 focus:ring-[#b39cd0]/25"
-                  >
-                    {currencyOptions.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.code}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
               <div className="md:col-span-2 flex items-center justify-between pt-1">
                 <label className="flex items-center gap-2 text-sm text-black/70">
                   <input
@@ -324,6 +280,11 @@ export default function ProductCreateClient() {
                   />
                   Aktif
                 </label>
+
+                <div className="text-xs text-black/45">
+                  Fiyatlar, ürünü oluşturduktan sonra{" "}
+                  <b>Ürün Düzenle &gt; Prices</b> sekmesinden girilir.
+                </div>
               </div>
             </div>
           </div>
