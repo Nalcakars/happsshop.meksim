@@ -18,6 +18,7 @@ import {
   RotateCcw,
   BadgeDollarSign,
   Plus,
+  Boxes,
 } from "lucide-react";
 
 type LookupItem = { id: number; name: string; isActive: boolean };
@@ -90,6 +91,18 @@ type PriceDto = {
   ccSingleRatio: number | null;
   ccInstallmentRatio: number | null;
   deferredRatio: number | null;
+
+  createdAt?: string;
+  updatedAt?: string | null;
+};
+
+type StockDto = {
+  id: number;
+  productID?: number;
+  warehouseID: number;
+
+  quantity: number; // zorunlu gibi düşünebiliriz
+  reservedQuantity: number | null;
 
   createdAt?: string;
   updatedAt?: string | null;
@@ -205,7 +218,13 @@ function normalizeProductDetail(d: any): ProductDetail {
   };
 }
 
-type TabKey = "general" | "images" | "prices" | "dimensions" | "additionals";
+type TabKey =
+  | "general"
+  | "images"
+  | "prices"
+  | "stocks"
+  | "dimensions"
+  | "additionals";
 
 function nOrNull(v: string): number | null {
   const t = (v ?? "").trim();
@@ -308,6 +327,18 @@ export default function ProductEditClient() {
   const [pCcSingleRatio, setPCcSingleRatio] = useState<string>("");
   const [pCcInstallmentRatio, setPCcInstallmentRatio] = useState<string>("");
   const [pDeferredRatio, setPDeferredRatio] = useState<string>("");
+
+  // Stocks
+  const [stocks, setStocks] = useState<StockDto[]>([]);
+  const [stocksLoading, setStocksLoading] = useState(false);
+
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [stockSaving, setStockSaving] = useState(false);
+  const [editingStockId, setEditingStockId] = useState<number | null>(null);
+
+  const [sWarehouseID, setSWarehouseID] = useState<string>("");
+  const [sQuantity, setSQuantity] = useState<string>("0");
+  const [sReservedQuantity, setSReservedQuantity] = useState<string>("");
 
   function setDimsFromDto(dto: ProductDimensionsDto) {
     setDimLength(dto?.length != null ? String(dto.length) : "");
@@ -495,6 +526,142 @@ export default function ProductEditClient() {
     setPDeferredRatio(p.deferredRatio != null ? String(p.deferredRatio) : "");
 
     setPriceModalOpen(true);
+  }
+
+  async function reloadStocks() {
+    if (!id) return;
+    setStocksLoading(true);
+    try {
+      const res = await apiJson<any>(
+        `/api/supervisor/products/${id}/stocks?lang=${lang}`
+      );
+      const list = (res?.items ?? res) as any[];
+
+      const normalized: StockDto[] = (list ?? []).map((x: any) => ({
+        id: x.id ?? x.ID,
+        productID: x.productID ?? x.ProductID,
+        warehouseID: x.warehouseID ?? x.WarehouseID,
+
+        quantity: x.quantity ?? x.Quantity ?? 0,
+        reservedQuantity: x.reservedQuantity ?? x.ReservedQuantity ?? null,
+
+        createdAt: x.createdAt ?? x.CreatedAt,
+        updatedAt: x.updatedAt ?? x.UpdatedAt ?? null,
+      }));
+
+      normalized.sort((a, b) => a.warehouseID - b.warehouseID);
+      setStocks(normalized);
+
+      // toplam stok => general stockQty alanına bas
+      const total = normalized.reduce(
+        (sum, r) => sum + (Number(r.quantity) || 0),
+        0
+      );
+      setStockQty(total);
+    } catch (e: any) {
+      setErr(e?.message ?? "Stoklar yüklenemedi.");
+    } finally {
+      setStocksLoading(false);
+    }
+  }
+
+  function resetStockForm() {
+    setEditingStockId(null);
+    setSWarehouseID("");
+    setSQuantity("0");
+    setSReservedQuantity("");
+  }
+
+  function openCreateStock() {
+    resetStockForm();
+    const firstW = warehouses.find((w) => w.isActive) ?? warehouses[0];
+    if (firstW) setSWarehouseID(String(firstW.id));
+    setStockModalOpen(true);
+  }
+
+  function openEditStock(s: StockDto) {
+    setEditingStockId(s.id);
+    setSWarehouseID(String(s.warehouseID));
+    setSQuantity(String(s.quantity ?? 0));
+    setSReservedQuantity(
+      s.reservedQuantity != null ? String(s.reservedQuantity) : ""
+    );
+    setStockModalOpen(true);
+  }
+
+  async function saveStock() {
+    if (!id) return;
+
+    const wid = Number(sWarehouseID);
+    if (!Number.isFinite(wid) || wid <= 0) {
+      setErr("Depo seçimi zorunlu.");
+      return;
+    }
+
+    const qty = Number((sQuantity ?? "").trim());
+    if (!Number.isFinite(qty)) {
+      setErr("Stok miktarı sayı olmalı.");
+      return;
+    }
+
+    const rRaw = (sReservedQuantity ?? "").trim();
+    const reserved = rRaw ? Number(rRaw) : null;
+    if (rRaw && !Number.isFinite(reserved as any)) {
+      setErr("Rezerve stok sayı olmalı.");
+      return;
+    }
+
+    setErr(null);
+    setStockSaving(true);
+
+    try {
+      // TODO: BACKEND payload alanları ve mode kurgusu
+      const payload = {
+        warehouseID: wid,
+        quantity: qty,
+        reservedQuantity: reserved,
+      };
+
+      if (editingStockId) {
+        await apiJson<any>(
+          `/api/supervisor/products/${id}/stocks/${editingStockId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
+      } else {
+        await apiJson<any>(`/api/supervisor/products/${id}/stocks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      setStockModalOpen(false);
+      resetStockForm();
+      await reloadStocks();
+    } catch (e: any) {
+      setErr(e?.message ?? "Stok kaydedilemedi.");
+    } finally {
+      setStockSaving(false);
+    }
+  }
+
+  async function deleteStock(stockId: number) {
+    if (!id) return;
+    if (!confirm("Bu stok kaydını silmek istiyor musun?")) return;
+
+    setErr(null);
+    try {
+      await apiJson<any>(`/api/supervisor/products/${id}/stocks/${stockId}`, {
+        method: "DELETE",
+      });
+      await reloadStocks();
+    } catch (e: any) {
+      setErr(e?.message ?? "Stok silinemedi.");
+    }
   }
 
   const computedBasePrice = useMemo(() => {
@@ -903,6 +1070,8 @@ export default function ProductEditClient() {
 
         // prices
         await reloadPrices();
+        // stocks
+        await reloadStocks();
       } catch (e: any) {
         if (!cancelled) setErr(e?.message ?? "Hata oluştu.");
       } finally {
@@ -1035,6 +1204,11 @@ export default function ProductEditClient() {
           icon={<BadgeDollarSign className="h-4 w-4" />}
         />
         <TabButton
+          k="stocks"
+          label="Stoklar"
+          icon={<Boxes className="h-4 w-4" />}
+        />
+        <TabButton
           k="dimensions"
           label="Ölçüler"
           icon={<Ruler className="h-4 w-4" />}
@@ -1103,20 +1277,6 @@ export default function ProductEditClient() {
                   />
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-black/70">
-                    Stok
-                  </label>
-                  <input
-                    type="number"
-                    value={stockQty}
-                    onChange={(e) =>
-                      setStockQty(parseInt(e.target.value || "0", 10))
-                    }
-                    className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#845ec2]/30 focus:ring-4 focus:ring-[#b39cd0]/25"
-                  />
-                </div>
-
                 <div className="md:col-span-2 flex items-center justify-between pt-1">
                   <label className="flex items-center gap-2 text-sm text-black/70">
                     <input
@@ -1127,11 +1287,6 @@ export default function ProductEditClient() {
                     />
                     Aktif
                   </label>
-
-                  <div className="text-xs text-black/45">
-                    Fiyatlar depo bazlıdır: <b>Fiyatlar</b> sekmesinden
-                    yönetilir.
-                  </div>
                 </div>
               </div>
             </div>
@@ -1810,6 +1965,208 @@ export default function ProductEditClient() {
                     disabled={priceSaving}
                   >
                     {priceSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Kaydet
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: STOCKS */}
+      {tab === "stocks" && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-[--foreground]">
+                  Stoklar
+                </div>
+                <div className="text-xs text-black/50">
+                  Depo bazlı stok yönetimi
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => reloadStocks()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black/70 hover:bg-black/[0.03]"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Yenile
+                </button>
+
+                <button
+                  type="button"
+                  onClick={openCreateStock}
+                  className="inline-flex items-center gap-2 rounded-xl border border-black/15 bg-white px-3 py-2 text-sm font-semibold text-black shadow-sm hover:border-[#845ec2]/45 hover:bg-[#fbeaff]/60"
+                >
+                  <Plus className="h-4 w-4" />
+                  Yeni Stok
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-auto rounded-2xl border border-black/10">
+              <table className="min-w-[780px] w-full text-sm">
+                <thead className="bg-black/[0.02]">
+                  <tr className="text-left text-black/60">
+                    <th className="px-4 py-3 font-semibold">Depo</th>
+                    <th className="px-4 py-3 font-semibold">Stok</th>
+                    <th className="px-4 py-3 font-semibold">Rezerve</th>
+                    <th className="px-4 py-3 font-semibold">İşlem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stocksLoading ? (
+                    <tr>
+                      <td className="px-4 py-4" colSpan={4}>
+                        <div className="flex items-center gap-2 text-black/70">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Yükleniyor...
+                        </div>
+                      </td>
+                    </tr>
+                  ) : stocks.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-4 text-black/50" colSpan={4}>
+                        Henüz stok yok. “Yeni Stok” ile ekleyebilirsin.
+                      </td>
+                    </tr>
+                  ) : (
+                    stocks.map((s) => (
+                      <tr key={s.id} className="border-t border-black/10">
+                        <td className="px-4 py-3">
+                          {warehouseName(s.warehouseID)}
+                        </td>
+                        <td className="px-4 py-3 font-semibold">
+                          {s.quantity}
+                        </td>
+                        <td className="px-4 py-3">{s.reservedQuantity ?? 0}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditStock(s)}
+                              className="rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black/70 hover:bg-black/[0.03]"
+                            >
+                              Düzenle
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteStock(s.id)}
+                              className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Sil
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Stock Modal */}
+          {stockModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-black/10 px-5 py-4">
+                  <div>
+                    <div className="text-sm font-semibold text-[--foreground]">
+                      {editingStockId ? "Stok Düzenle" : "Yeni Stok"}
+                    </div>
+                    <div className="text-xs text-black/50"></div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStockModalOpen(false);
+                      resetStockForm();
+                    }}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 hover:bg-black/[0.03]"
+                  >
+                    <X className="h-4 w-4 text-black/70" />
+                  </button>
+                </div>
+
+                <div className="p-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-black/70">
+                        Depo
+                      </label>
+                      <select
+                        value={sWarehouseID}
+                        onChange={(e) => setSWarehouseID(e.target.value)}
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#845ec2]/30 focus:ring-4 focus:ring-[#b39cd0]/25"
+                      >
+                        <option value="">(Seçiniz)</option>
+                        {warehouses.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-black/70">
+                        Stok
+                      </label>
+                      <input
+                        value={sQuantity}
+                        onChange={(e) => setSQuantity(e.target.value)}
+                        placeholder="örn: 100"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#845ec2]/30 focus:ring-4 focus:ring-[#b39cd0]/25"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="mb-2 block text-sm font-medium text-black/70">
+                        Rezerve (opsiyonel)
+                      </label>
+                      <input
+                        value={sReservedQuantity}
+                        onChange={(e) => setSReservedQuantity(e.target.value)}
+                        placeholder="örn: 0"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#845ec2]/30 focus:ring-4 focus:ring-[#b39cd0]/25"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 border-t border-black/10 px-5 py-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStockModalOpen(false);
+                      resetStockForm();
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-sm text-black/70 hover:bg-black/[0.03]"
+                    disabled={stockSaving}
+                  >
+                    <X className="h-4 w-4" />
+                    Kapat
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={saveStock}
+                    className="inline-flex items-center gap-2 rounded-xl border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-black shadow-sm hover:border-[#845ec2]/45 hover:bg-[#fbeaff]/60 disabled:opacity-50"
+                    disabled={stockSaving}
+                  >
+                    {stockSaving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Save className="h-4 w-4" />

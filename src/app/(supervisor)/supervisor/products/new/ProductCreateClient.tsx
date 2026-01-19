@@ -256,20 +256,6 @@ export default function ProductCreateClient() {
                 />
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-black/70">
-                  Stok
-                </label>
-                <input
-                  type="number"
-                  value={stockQty}
-                  onChange={(e) =>
-                    setStockQty(parseInt(e.target.value || "0", 10))
-                  }
-                  className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#845ec2]/30 focus:ring-4 focus:ring-[#b39cd0]/25"
-                />
-              </div>
-
               <div className="md:col-span-2 flex items-center justify-between pt-1">
                 <label className="flex items-center gap-2 text-sm text-black/70">
                   <input

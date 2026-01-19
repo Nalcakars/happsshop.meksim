@@ -59,6 +59,11 @@ export default function SidebarNav({
             label: "Kategoriler",
           },
           { id: "brands", href: "/supervisor/brands", label: "Markalar" },
+          {
+            id: "warehouses",
+            href: "/supervisor/warehouses",
+            label: "Depolar",
+          },
         ],
       },
       {

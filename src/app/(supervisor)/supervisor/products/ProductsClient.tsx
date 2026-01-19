@@ -10,6 +10,7 @@ import {
   X,
   AlertTriangle,
   FileSpreadsheet,
+  ChevronDown,
 } from "lucide-react";
 
 type ProductDto = {
@@ -204,6 +205,12 @@ export default function ProductsClient() {
     h: number;
   } | null>(null);
 
+  // ✅ Export dropdown
+  const [exportOpen, setExportOpen] = useState(false);
+  function closeExportMenu() {
+    setExportOpen(false);
+  }
+
   useEffect(() => {
     const t = setTimeout(() => setQDebounced(q), 300);
     return () => clearTimeout(t);
@@ -314,7 +321,13 @@ export default function ProductsClient() {
   return (
     <div
       onMouseLeave={() => setPreview(null)}
-      onScrollCapture={() => setPreview(null)}
+      onScrollCapture={() => {
+        setPreview(null);
+        closeExportMenu();
+      }}
+      onClickCapture={() => {
+        if (exportOpen) closeExportMenu();
+      }}
     >
       {preview && (
         <div
@@ -363,6 +376,47 @@ export default function ProductsClient() {
             <FileSpreadsheet className="h-4 w-4" />
             Excel ile Ürün Yükle
           </Link>
+
+          {/* ✅ Dışa Aktar Dropdown */}
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setExportOpen((v) => !v)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/70 shadow-sm hover:bg-black/[0.03]"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Dışa Aktar
+              <ChevronDown className="h-4 w-4 text-black/50" />
+            </button>
+
+            {exportOpen && (
+              <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl">
+                <a
+                  href={`/api/supervisor/exports/products?lang=${lang}`}
+                  onClick={() => closeExportMenu()}
+                  className="block px-4 py-3 text-sm text-black/75 hover:bg-black/[0.03]"
+                >
+                  Ürün
+                </a>
+
+                <a
+                  href="/api/supervisor/exports/prices"
+                  onClick={() => closeExportMenu()}
+                  className="block px-4 py-3 text-sm text-black/75 hover:bg-black/[0.03]"
+                >
+                  Fiyat
+                </a>
+
+                <a
+                  href="/api/supervisor/exports/stocks"
+                  onClick={() => closeExportMenu()}
+                  className="block px-4 py-3 text-sm text-black/75 hover:bg-black/[0.03]"
+                >
+                  Stok
+                </a>
+              </div>
+            )}
+          </div>
 
           <Link
             href="/supervisor/products/new"
