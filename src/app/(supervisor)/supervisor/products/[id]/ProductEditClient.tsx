@@ -1579,10 +1579,7 @@ export default function ProductEditClient() {
                     </tr>
                   ) : (
                     prices.map((p) => (
-                      <tr
-                        key={`${row.priceId}-${row.productId}-${row.warehouseId}-${row.currencyId}`}
-                        className="border-t border-black/5 hover:bg-black/[0.015]"
-                      >
+                      <tr key={p.id} className="border-t border-black/10">
                         <td className="px-4 py-3">
                           {warehouseName(p.warehouseID)}
                         </td>
