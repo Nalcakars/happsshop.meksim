@@ -132,14 +132,14 @@ async function apiJson<T>(url: string, init?: RequestInit): Promise<T> {
 async function fetchAllLookup(
   urlBase: string,
   pageSize = 500,
-  maxPages = 200
+  maxPages = 200,
 ): Promise<LookupItem[]> {
   const all: LookupItem[] = [];
   let page = 1;
 
   while (page <= maxPages) {
     const res = await apiJson<any>(
-      `${urlBase}&page=${page}&pageSize=${pageSize}&q=`
+      `${urlBase}&page=${page}&pageSize=${pageSize}&q=`,
     );
 
     const items = (res?.items ?? res) as LookupItem[];
@@ -172,10 +172,10 @@ function normalizeProductDetail(d: any): ProductDetail {
   const langs = d?.languages ?? d?.Languages ?? [];
   const trName =
     langs.find(
-      (x: any) => (x.languageCode ?? x.LanguageCode)?.toLowerCase() === "tr"
+      (x: any) => (x.languageCode ?? x.LanguageCode)?.toLowerCase() === "tr",
     )?.productName ??
     langs.find(
-      (x: any) => (x.LanguageCode ?? x.languageCode)?.toLowerCase() === "tr"
+      (x: any) => (x.LanguageCode ?? x.languageCode)?.toLowerCase() === "tr",
     )?.ProductName ??
     d?.name ??
     d?.Name ??
@@ -194,7 +194,7 @@ function normalizeProductDetail(d: any): ProductDetail {
     d?.categoryIDs ??
     d?.CategoryIDs ??
     d?.categories?.map(
-      (x: any) => x.categoryID ?? x.CategoryID ?? x.id ?? x.ID
+      (x: any) => x.categoryID ?? x.CategoryID ?? x.id ?? x.ID,
     ) ??
     [];
 
@@ -360,7 +360,7 @@ export default function ProductEditClient() {
   async function reloadImages() {
     try {
       const imgRes = await apiJson<any>(
-        `/api/supervisor/products/${id}/images`
+        `/api/supervisor/products/${id}/images`,
       );
       const imgs = (imgRes.items ?? imgRes) as any[];
       const normalized: ProductImageDto[] = (imgs ?? []).map((x: any) => ({
@@ -379,7 +379,7 @@ export default function ProductEditClient() {
   async function reloadDims() {
     try {
       const d = await apiJson<ProductDimensionsDto>(
-        `/api/supervisor/products/${id}/dimensions`
+        `/api/supervisor/products/${id}/dimensions`,
       );
       setDimsFromDto(d ?? null);
     } catch {
@@ -390,7 +390,7 @@ export default function ProductEditClient() {
   async function reloadAdds() {
     try {
       const a = await apiJson<ProductAdditionalsDto>(
-        `/api/supervisor/products/${id}/additionals`
+        `/api/supervisor/products/${id}/additionals`,
       );
       setAddsFromDto(a ?? null);
     } catch {
@@ -403,7 +403,7 @@ export default function ProductEditClient() {
     setPricesLoading(true);
     try {
       const res = await apiJson<any>(
-        `/api/supervisor/products/${id}/prices?lang=${lang}`
+        `/api/supervisor/products/${id}/prices?lang=${lang}`,
       );
       const list = (res?.items ?? res) as any[];
       const normalized: PriceDto[] = (list ?? []).map((x: any) => ({
@@ -440,7 +440,7 @@ export default function ProductEditClient() {
 
       // sort: warehouse then currency
       normalized.sort(
-        (a, b) => a.warehouseID - b.warehouseID || a.currencyID - b.currencyID
+        (a, b) => a.warehouseID - b.warehouseID || a.currencyID - b.currencyID,
       );
       setPrices(normalized);
     } catch (e: any) {
@@ -521,7 +521,7 @@ export default function ProductEditClient() {
     setPCashRatio(p.cashRatio != null ? String(p.cashRatio) : "");
     setPCcSingleRatio(p.ccSingleRatio != null ? String(p.ccSingleRatio) : "");
     setPCcInstallmentRatio(
-      p.ccInstallmentRatio != null ? String(p.ccInstallmentRatio) : ""
+      p.ccInstallmentRatio != null ? String(p.ccInstallmentRatio) : "",
     );
     setPDeferredRatio(p.deferredRatio != null ? String(p.deferredRatio) : "");
 
@@ -533,7 +533,7 @@ export default function ProductEditClient() {
     setStocksLoading(true);
     try {
       const res = await apiJson<any>(
-        `/api/supervisor/products/${id}/stocks?lang=${lang}`
+        `/api/supervisor/products/${id}/stocks?lang=${lang}`,
       );
       const list = (res?.items ?? res) as any[];
 
@@ -555,7 +555,7 @@ export default function ProductEditClient() {
       // toplam stok => general stockQty alanına bas
       const total = normalized.reduce(
         (sum, r) => sum + (Number(r.quantity) || 0),
-        0
+        0,
       );
       setStockQty(total);
     } catch (e: any) {
@@ -584,7 +584,7 @@ export default function ProductEditClient() {
     setSWarehouseID(String(s.warehouseID));
     setSQuantity(String(s.quantity ?? 0));
     setSReservedQuantity(
-      s.reservedQuantity != null ? String(s.reservedQuantity) : ""
+      s.reservedQuantity != null ? String(s.reservedQuantity) : "",
     );
     setStockModalOpen(true);
   }
@@ -629,7 +629,7 @@ export default function ProductEditClient() {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
-          }
+          },
         );
       } else {
         await apiJson<any>(`/api/supervisor/products/${id}/stocks`, {
@@ -683,19 +683,19 @@ export default function ProductEditClient() {
 
   const derivedCash = useMemo(
     () => safeMul(effectivePriceValue, nOrNull(pCashRatio)),
-    [effectivePriceValue, pCashRatio]
+    [effectivePriceValue, pCashRatio],
   );
   const derivedSingle = useMemo(
     () => safeMul(effectivePriceValue, nOrNull(pCcSingleRatio)),
-    [effectivePriceValue, pCcSingleRatio]
+    [effectivePriceValue, pCcSingleRatio],
   );
   const derivedInstallment = useMemo(
     () => safeMul(effectivePriceValue, nOrNull(pCcInstallmentRatio)),
-    [effectivePriceValue, pCcInstallmentRatio]
+    [effectivePriceValue, pCcInstallmentRatio],
   );
   const derivedDeferred = useMemo(
     () => safeMul(effectivePriceValue, nOrNull(pDeferredRatio)),
-    [effectivePriceValue, pDeferredRatio]
+    [effectivePriceValue, pDeferredRatio],
   );
 
   async function savePrice() {
@@ -756,7 +756,7 @@ export default function ProductEditClient() {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
-          }
+          },
         );
       } else {
         await apiJson<any>(`/api/supervisor/products/${id}/prices`, {
@@ -801,7 +801,7 @@ export default function ProductEditClient() {
         `/api/supervisor/products/${productId}/images?makePrimary=${
           i === 0 ? "true" : "false"
         }`,
-        { method: "POST", body: form }
+        { method: "POST", body: form },
       );
     }
   }
@@ -970,7 +970,7 @@ export default function ProductEditClient() {
     try {
       await apiJson<any>(
         `/api/supervisor/products/${id}/images/${imageId}/primary`,
-        { method: "PUT" }
+        { method: "PUT" },
       );
       await reloadImages();
     } catch (e: any) {
@@ -996,7 +996,7 @@ export default function ProductEditClient() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          normalized.map((x) => ({ imageId: x.id, sortOrder: x.sortOrder }))
+          normalized.map((x) => ({ imageId: x.id, sortOrder: x.sortOrder })),
         ),
       });
       await reloadImages();
@@ -1022,13 +1022,13 @@ export default function ProductEditClient() {
             fetchAllLookup(`/api/supervisor/warehouses?lang=${lang}`),
             apiJson<any>(`/api/supervisor/products/${id}?lang=${lang}`),
             apiJson<any>(`/api/supervisor/products/${id}/images`).catch(
-              () => null
+              () => null,
             ),
             apiJson<ProductDimensionsDto>(
-              `/api/supervisor/products/${id}/dimensions`
+              `/api/supervisor/products/${id}/dimensions`,
             ).catch(() => null),
             apiJson<ProductAdditionalsDto>(
-              `/api/supervisor/products/${id}/additionals`
+              `/api/supervisor/products/${id}/additionals`,
             ).catch(() => null),
           ]);
 
@@ -1321,7 +1321,7 @@ export default function ProductEditClient() {
                       key={c.id}
                       onClick={() =>
                         setSelectedCategoryIDs((s) =>
-                          s.filter((x) => x !== c.id)
+                          s.filter((x) => x !== c.id),
                         )
                       }
                       className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-black/70 hover:bg-black/[0.03]"
@@ -1365,7 +1365,7 @@ export default function ProductEditClient() {
                             setSelectedCategoryIDs((s) =>
                               s.includes(c.id)
                                 ? s.filter((x) => x !== c.id)
-                                : [...s, c.id]
+                                : [...s, c.id],
                             )
                           }
                         />
@@ -1579,7 +1579,10 @@ export default function ProductEditClient() {
                     </tr>
                   ) : (
                     prices.map((p) => (
-                      <tr key={p.id} className="border-t border-black/10">
+                      <tr
+                        key={`${row.priceId}-${row.productId}-${row.warehouseId}-${row.currencyId}`}
+                        className="border-t border-black/5 hover:bg-black/[0.015]"
+                      >
                         <td className="px-4 py-3">
                           {warehouseName(p.warehouseID)}
                         </td>

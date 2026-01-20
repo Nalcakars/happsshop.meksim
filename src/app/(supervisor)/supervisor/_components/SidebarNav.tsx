@@ -64,6 +64,11 @@ export default function SidebarNav({
             href: "/supervisor/warehouses",
             label: "Depolar",
           },
+          {
+            id: "bulkupdate",
+            href: "/supervisor/bulk-update",
+            label: "Toplu Güncelleme",
+          },
         ],
       },
       {
@@ -116,7 +121,7 @@ export default function SidebarNav({
         ],
       },
     ],
-    []
+    [],
   );
 
   const groupHasActive = (items: NavItem[]) =>
