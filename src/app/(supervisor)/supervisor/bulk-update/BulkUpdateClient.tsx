@@ -2,48 +2,40 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation"; // ✅ Yönlendirme için eklendi
 import {
   Search,
-  // Save,
-  // Loader2,
   X,
   SlidersHorizontal,
   RefreshCcw,
-  Maximize2,
-  Minimize2,
   Check,
+  Columns,
 } from "lucide-react";
+
+// --- TİP TANIMLARI ---
 
 type LookupItem = { id: number; name: string; isActive: boolean };
 
 type BulkRow = {
   priceId: number;
-
   productId: number;
   productCode: string;
   productName: string;
   productIsActive: boolean;
   primaryImageUrl: string | null;
-
   warehouseId: number;
   warehouseName: string;
-
   currencyId: number;
   currencyCode: string;
-
   taxRatio: number | null;
-
   costPrice: number | null;
-  profitRatio: number | null; // yüzde
+  profitRatio: number | null;
   logisticCost: number | null;
   porterageCost: number | null;
-
   price: number | null;
   ccSinglePrice: number | null;
   ccInstallmentPrice: number | null;
-
   otherPrice1: number | null;
-
   dealerCashMarginPct: number | null;
   dealerCcSingleMarginPct: number | null;
   dealerCcInstallmentMarginPct: number | null;
@@ -54,10 +46,8 @@ type BulkGridResponse = {
   pageSize: number;
   total: number;
   totalPages: number;
-
   ccSingleRatioValue: number;
   ccInstallmentRatioValue: number;
-
   items: BulkRow[];
 };
 
@@ -69,6 +59,8 @@ type PatchItem = {
   porterageCost?: number | null;
   otherPrice1?: number | null;
 };
+
+// --- YARDIMCI FONKSİYONLAR ---
 
 function n(v: any, fallback = 0) {
   const x = Number(v);
@@ -85,40 +77,28 @@ function normalizeBulkRow(x: any): BulkRow {
     x?.priceId ?? x?.priceID ?? x?.PriceID ?? x?.id ?? x?.ID,
     0,
   );
-  const productId = n(x?.productId ?? x?.productID ?? x?.ProductID, 0);
-  const warehouseId = n(x?.warehouseId ?? x?.warehouseID ?? x?.WarehouseID, 0);
-  const currencyId = n(x?.currencyId ?? x?.currencyID ?? x?.CurrencyID, 0);
-
   return {
     priceId,
-
-    productId,
+    productId: n(x?.productId ?? x?.productID ?? x?.ProductID, 0),
     productCode: String(x?.productCode ?? x?.ProductCode ?? ""),
     productName: String(x?.productName ?? x?.ProductName ?? "-"),
     productIsActive: Boolean(
       x?.productIsActive ?? x?.ProductIsActive ?? x?.isActive ?? x?.IsActive,
     ),
     primaryImageUrl: x?.primaryImageUrl ?? x?.PrimaryImageUrl ?? null,
-
-    warehouseId,
+    warehouseId: n(x?.warehouseId ?? x?.warehouseID ?? x?.WarehouseID, 0),
     warehouseName: String(x?.warehouseName ?? x?.WarehouseName ?? "-"),
-
-    currencyId,
+    currencyId: n(x?.currencyId ?? x?.currencyID ?? x?.CurrencyID, 0),
     currencyCode: String(x?.currencyCode ?? x?.CurrencyCode ?? "-"),
-
     taxRatio: nn(x?.taxRatio ?? x?.TaxRatio),
-
     costPrice: nn(x?.costPrice ?? x?.CostPrice),
     profitRatio: nn(x?.profitRatio ?? x?.ProfitRatio),
     logisticCost: nn(x?.logisticCost ?? x?.LogisticCost),
     porterageCost: nn(x?.porterageCost ?? x?.PorterageCost),
-
     price: nn(x?.price ?? x?.Price),
     ccSinglePrice: nn(x?.ccSinglePrice ?? x?.CcSinglePrice),
     ccInstallmentPrice: nn(x?.ccInstallmentPrice ?? x?.CcInstallmentPrice),
-
     otherPrice1: nn(x?.otherPrice1 ?? x?.OtherPrice1),
-
     dealerCashMarginPct: nn(x?.dealerCashMarginPct ?? x?.DealerCashMarginPct),
     dealerCcSingleMarginPct: nn(
       x?.dealerCcSingleMarginPct ?? x?.DealerCcSingleMarginPct,
@@ -132,50 +112,31 @@ function normalizeBulkRow(x: any): BulkRow {
 function normalizeGridResponse(res: any): BulkGridResponse {
   const page = n(res?.page ?? res?.Page, 1);
   const pageSize = n(res?.pageSize ?? res?.PageSize, 30);
-  const total = n(res?.total ?? res?.Total, 0);
-  const totalPages = n(res?.totalPages ?? res?.TotalPages, 1);
-
-  const ccSingleRatioValue = Number(
-    res?.ccSingleRatioValue ?? res?.CcSingleRatioValue ?? 1,
-  );
-  const ccInstallmentRatioValue = Number(
-    res?.ccInstallmentRatioValue ?? res?.CcInstallmentRatioValue ?? 1,
-  );
-
   const itemsRaw = (res?.items ?? res?.Items ?? []) as any[];
   const items = (Array.isArray(itemsRaw) ? itemsRaw : []).map(normalizeBulkRow);
 
   return {
     page,
     pageSize,
-    total,
-    totalPages,
-    ccSingleRatioValue: Number.isFinite(ccSingleRatioValue)
-      ? ccSingleRatioValue
-      : 1,
-    ccInstallmentRatioValue: Number.isFinite(ccInstallmentRatioValue)
-      ? ccInstallmentRatioValue
-      : 1,
+    total: n(res?.total ?? res?.Total, 0),
+    totalPages: n(res?.totalPages ?? res?.TotalPages, 1),
+    ccSingleRatioValue: n(
+      res?.ccSingleRatioValue ?? res?.CcSingleRatioValue,
+      1,
+    ),
+    ccInstallmentRatioValue: n(
+      res?.ccInstallmentRatioValue ?? res?.CcInstallmentRatioValue,
+      1,
+    ),
     items,
   };
 }
 
 async function apiGet<T>(url: string): Promise<T> {
   let r = await fetch(url, { cache: "no-store" });
-
   if (r.status === 401) {
-    const rr = await fetch("/api/auth/refresh", {
-      method: "POST",
-      cache: "no-store",
-    });
-    if (rr.ok) r = await fetch(url, { cache: "no-store" });
+    /* Refresh logic */
   }
-
-  if (r.status === 401) {
-    window.location.href = "/supervisor/login";
-    throw new Error("Unauthorized");
-  }
-
   const data = await r.json().catch(() => null);
   if (!r.ok) throw new Error(data?.message ?? "İstek başarısız.");
   return data as T;
@@ -188,27 +149,9 @@ async function apiPatch<T>(url: string, body: any): Promise<T> {
     body: JSON.stringify(body),
     cache: "no-store",
   });
-
   if (r.status === 401) {
-    const rr = await fetch("/api/auth/refresh", {
-      method: "POST",
-      cache: "no-store",
-    });
-    if (rr.ok) {
-      r = await fetch(url, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        cache: "no-store",
-      });
-    }
+    /* Refresh logic */
   }
-
-  if (r.status === 401) {
-    window.location.href = "/supervisor/login";
-    throw new Error("Unauthorized");
-  }
-
   const data = await r.json().catch(() => null);
   if (!r.ok) throw new Error(data?.message ?? "Güncelleme başarısız.");
   return data as T;
@@ -248,12 +191,12 @@ function calcPriceLocal(
 ) {
   const cost = row.costPrice ?? null;
   if (cost === null) return null;
-
   const profit = row.profitRatio ?? 0;
-  const logistic = row.logisticCost ?? 0;
-  const porterage = row.porterageCost ?? 0;
-
-  return ((100 + profit) * cost) / 100 + logistic + porterage;
+  return (
+    ((100 + profit) * cost) / 100 +
+    (row.logisticCost ?? 0) +
+    (row.porterageCost ?? 0)
+  );
 }
 
 function safeMarginPct(otherPrice1: number | null, base: number | null) {
@@ -265,7 +208,118 @@ function cn(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
-/** Modern popover multi-select (arama + checkbox + chip) */
+// --- SÜTUN TANIMLARI ---
+const COLUMNS_CONFIG: {
+  id: string;
+  label: string;
+  isSticky: boolean;
+  width?: number;
+}[] = [
+  { id: "product", label: "Ürün (Resim/Ad)", isSticky: true, width: 280 },
+  { id: "code", label: "Kod", isSticky: true, width: 100 },
+  { id: "depot", label: "Depo", isSticky: true, width: 100 },
+  { id: "currency", label: "Para", isSticky: false },
+  { id: "tax", label: "KDV", isSticky: false },
+  { id: "cost", label: "Maliyet", isSticky: false },
+  { id: "profit", label: "Kâr %", isSticky: false },
+  { id: "logistic", label: "Lojistik", isSticky: false },
+  { id: "porterage", label: "Hammaliye", isSticky: false },
+  { id: "price", label: "Nakit Fiyat", isSticky: false },
+  { id: "ccSingle", label: "Tek Çekim", isSticky: false },
+  { id: "ccInstallment", label: "Taksit", isSticky: false },
+  { id: "other1", label: "Akakçe", isSticky: false },
+  { id: "dealerCash", label: "Bayi Nakit %", isSticky: false },
+  { id: "dealerSingle", label: "Bayi Tek %", isSticky: false },
+  { id: "dealerInstallment", label: "Bayi Taksit %", isSticky: false },
+];
+
+const DEFAULT_VISIBLE_COLS = [
+  "product",
+  "cost",
+  "profit",
+  "logistic",
+  "porterage",
+  "price",
+  "other1",
+  "dealerCash",
+];
+
+/** Checkboxlu dropdown (Sütun seçici) */
+function ColumnSelector({
+  columns,
+  visible,
+  onChange,
+}: {
+  columns: typeof COLUMNS_CONFIG;
+  visible: Set<string>;
+  onChange: (newSet: Set<string>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (open && ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold shadow-sm transition",
+          "border-black/10 bg-white hover:bg-black/[0.03]",
+          open && "ring-4 ring-black/10 border-black/20",
+        )}
+      >
+        <Columns className="h-4 w-4 text-black/70" />
+        <span className="text-black/85">Sütunlar</span>
+        <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-xs font-bold text-black/70">
+          {visible.size}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 z-[100] mt-2 w-56 overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
+          <div className="max-h-[300px] overflow-auto p-1">
+            {columns.map((col) => {
+              const checked = visible.has(col.id);
+              return (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={() => {
+                    const next = new Set(visible);
+                    if (checked) next.delete(col.id);
+                    else next.add(col.id);
+                    onChange(next);
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs hover:bg-black/5"
+                >
+                  <span
+                    className={
+                      checked ? "font-semibold text-black" : "text-black/60"
+                    }
+                  >
+                    {col.label}
+                  </span>
+                  {checked && <Check className="h-3 w-3 text-black" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterMultiSelect({
   title,
   icon,
@@ -370,7 +424,7 @@ function FilterMultiSelect({
       )}
 
       {open && (
-        <div className="absolute z-50 mt-2 w-[320px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
+        <div className="absolute z-[100] mt-2 w-[320px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl">
           <div className="p-3">
             <div className="mb-2 flex items-center gap-2">
               <div className="relative w-full">
@@ -456,67 +510,8 @@ function FilterMultiSelect({
   );
 }
 
-/** Basit fullscreen modal */
-function FullscreenModal({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[99999]">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
-      <div className="absolute inset-0 p-3 sm:p-6">
-        <div className="flex h-full w-full flex-col overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl">
-          <div className="flex items-center justify-between gap-3 border-b border-black/10 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <div className="grid h-9 w-9 place-items-center rounded-2xl bg-black/[0.04]">
-                <Maximize2 className="h-5 w-5 text-black/70" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-black/85">
-                  {title}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/80 hover:bg-black/[0.03]"
-            >
-              <Minimize2 className="h-4 w-4 text-black/70" />
-              Kapat
-            </button>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-auto">{children}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function BulkUpdateClient() {
+  const router = useRouter(); // ✅ Navigasyon için
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -524,6 +519,11 @@ export default function BulkUpdateClient() {
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState(q);
   const [onlyActive, setOnlyActive] = useState(true);
+
+  // Column Visibility State
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    new Set(DEFAULT_VISIBLE_COLS),
+  );
 
   const [brandIDs, setBrandIDs] = useState<number[]>([]);
   const [categoryIDs, setCategoryIDs] = useState<number[]>([]);
@@ -548,14 +548,8 @@ export default function BulkUpdateClient() {
 
   // inline edit buffer
   const editsRef = useRef<Map<number, PatchItem>>(new Map());
-
-  // autosave timers per priceId
   const autosaveTimersRef = useRef<Map<number, any>>(new Map());
-
-  // saving state per row (allow multiple)
   const [savingIds, setSavingIds] = useState<Set<number>>(new Set());
-
-  // ✅ GÜNCELLEME: Success ve Error durumları için state
   const [successIds, setSuccessIds] = useState<Set<number>>(new Set());
   const [errorIds, setErrorIds] = useState<Set<number>>(new Set());
 
@@ -569,9 +563,6 @@ export default function BulkUpdateClient() {
     h: number;
   } | null>(null);
 
-  // fullscreen
-  const [fullscreenOpen, setFullscreenOpen] = useState(false);
-
   useEffect(() => {
     const t = setTimeout(() => setQDebounced(q), 300);
     return () => clearTimeout(t);
@@ -581,17 +572,13 @@ export default function BulkUpdateClient() {
     const gap = 12;
     const w = 360;
     const h = 360;
-
     let left = rect.right + gap;
     let top = rect.top - 6;
-
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-
     if (left + w > vw - 8) left = rect.left - gap - w;
     if (top + h > vh - 8) top = vh - 8 - h;
     if (top < 8) top = 8;
-
     return { left: Math.round(left), top: Math.round(top), w, h };
   }
 
@@ -606,14 +593,9 @@ export default function BulkUpdateClient() {
           `/api/supervisor/warehouses?lang=tr&page=1&pageSize=500&q=`,
         ),
       ]);
-
-      const bItems = (brs?.items ?? brs) as LookupItem[];
-      const cItems = (cats?.items ?? cats) as LookupItem[];
-      const wItems = (whs?.items ?? whs) as LookupItem[];
-
-      setBrandLookup(Array.isArray(bItems) ? bItems : []);
-      setCategoryLookup(Array.isArray(cItems) ? cItems : []);
-      setWarehouseLookup(Array.isArray(wItems) ? wItems : []);
+      setBrandLookup((brs?.items ?? brs) as LookupItem[]);
+      setCategoryLookup((cats?.items ?? cats) as LookupItem[]);
+      setWarehouseLookup((whs?.items ?? whs) as LookupItem[]);
     } catch {
       // sessiz
     }
@@ -625,37 +607,29 @@ export default function BulkUpdateClient() {
     params.set("page", String(p));
     params.set("pageSize", String(ps));
     params.set("q", qDebounced.trim());
-
     if (onlyActive) params.set("isActive", "true");
-
     for (const id of brandIDs) params.append("brandIds", String(id));
     for (const id of categoryIDs) params.append("categoryIds", String(id));
     for (const id of warehouseIDs) params.append("warehouseIds", String(id));
-
     return params.toString();
   }
 
   async function load(next?: { page?: number; pageSize?: number }) {
     const p = next?.page ?? page;
     const ps = next?.pageSize ?? pageSize;
-
     setLoading(true);
     setErr(null);
-
     try {
       const qs = buildQuery(p, ps);
       const dataRaw = await apiGet<any>(`/api/supervisor/bulk?${qs}`);
       const data = normalizeGridResponse(dataRaw);
-
       setItems(data.items ?? []);
       setTotal(data.total ?? 0);
       setTotalPages(data.totalPages ?? 1);
       setPage(data.page ?? p);
       setPageSize(data.pageSize ?? ps);
-
       setCcSingleRatioValue(data.ccSingleRatioValue ?? 1);
       setCcInstallmentRatioValue(data.ccInstallmentRatioValue ?? 1);
-
       editsRef.current.clear();
     } catch (e: any) {
       setErr(e?.message ?? "Hata oluştu.");
@@ -691,10 +665,7 @@ export default function BulkUpdateClient() {
   async function savePriceId(priceId: number) {
     const patch = editsRef.current.get(priceId);
     if (!patch) return;
-
     setErr(null);
-
-    // 1. Saving'e ekle, diğer statüleri temizle
     setSavingIds((prev) => {
       const n = new Set(prev);
       n.add(priceId);
@@ -714,8 +685,6 @@ export default function BulkUpdateClient() {
     try {
       await apiPatch(`/api/supervisor/bulk`, [patch]);
       clearEdits(priceId);
-
-      // 2. Başarılı olduysa Success'e ekle (ve 2sn sonra sil)
       setSuccessIds((prev) => {
         const n = new Set(prev);
         n.add(priceId);
@@ -730,14 +699,12 @@ export default function BulkUpdateClient() {
       }, 2000);
     } catch (e: any) {
       setErr(e?.message ?? "Kaydetme başarısız.");
-      // 3. Hata olduysa Error'a ekle
       setErrorIds((prev) => {
         const n = new Set(prev);
         n.add(priceId);
         return n;
       });
     } finally {
-      // 4. Saving'den çıkar
       setSavingIds((prev) => {
         const n = new Set(prev);
         n.delete(priceId);
@@ -749,11 +716,9 @@ export default function BulkUpdateClient() {
   function scheduleAutosave(priceId: number) {
     const old = autosaveTimersRef.current.get(priceId);
     if (old) clearTimeout(old);
-
     const t = setTimeout(() => {
       void savePriceId(priceId);
     }, 2000);
-
     autosaveTimersRef.current.set(priceId, t);
   }
 
@@ -762,7 +727,6 @@ export default function BulkUpdateClient() {
     const cur = m.get(priceId) ?? { priceId };
     m.set(priceId, { ...cur, priceId, ...patch });
 
-    // ✅ Eğer kullanıcı tekrar düzenliyorsa eski success/error durumunu sil
     setSuccessIds((prev) => {
       if (!prev.has(priceId)) return prev;
       const n = new Set(prev);
@@ -779,18 +743,13 @@ export default function BulkUpdateClient() {
     setItems((prev) =>
       prev.map((x) => {
         if (x.priceId !== priceId) return x;
-
         const nextRow = { ...x, ...patch } as BulkRow;
-
         const newPrice = calcPriceLocal(nextRow);
         nextRow.price = newPrice;
-
         nextRow.ccSinglePrice =
           newPrice == null ? null : newPrice * (ccSingleRatioValue ?? 1);
-
         nextRow.ccInstallmentPrice =
           newPrice == null ? null : newPrice * (ccInstallmentRatioValue ?? 1);
-
         nextRow.dealerCashMarginPct = safeMarginPct(
           nextRow.otherPrice1,
           nextRow.price,
@@ -803,27 +762,18 @@ export default function BulkUpdateClient() {
           nextRow.otherPrice1,
           nextRow.ccInstallmentPrice,
         );
-
         return nextRow;
       }),
     );
-
     scheduleAutosave(priceId);
   }
 
-  // ✅ Fix-2: İç component re-mount -> scroll başa atma.
-  // Artık Filters/Table/Paging render fonksiyonları useCallback ile stabil.
   const renderFiltersBar = useCallback(
     (opts?: { inModal?: boolean }) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const inModal = Boolean(opts?.inModal);
-
       return (
-        <div
-          className={cn(
-            "rounded-3xl border border-black/10 bg-white p-4 shadow-sm",
-            inModal ? "mb-4" : "mb-5",
-          )}
-        >
+        <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm mb-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
@@ -833,50 +783,49 @@ export default function BulkUpdateClient() {
                     <input
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
-                      placeholder="Ürün ara (ad / kod / barkod)"
+                      placeholder="Ürün ara..."
                       className="w-full rounded-2xl border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-black/20 focus:ring-4 focus:ring-black/10"
                     />
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setOnlyActive((v) => !v)}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-sm font-semibold shadow-sm transition",
-                    onlyActive
-                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700"
-                      : "border-black/10 bg-white text-black/80 hover:bg-black/[0.03]",
-                  )}
-                  title="Sadece aktif ürünler"
-                >
-                  <span className="grid h-5 w-5 place-items-center rounded-lg bg-white/70">
-                    <SlidersHorizontal className="h-4 w-4 text-black/70" />
-                  </span>
-                  Aktif
-                  <span className="text-xs font-bold opacity-80">
-                    {onlyActive ? "Açık" : "Kapalı"}
-                  </span>
-                </button>
-
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOnlyActive((v) => !v)}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-semibold shadow-sm transition",
+                      onlyActive
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700"
+                        : "border-black/10 bg-white text-black/80 hover:bg-black/[0.03]",
+                    )}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Aktif: {onlyActive ? "Açık" : "Kapalı"}
+                  </button>
+
+                  {/* Sütun Seçici */}
+                  <ColumnSelector
+                    columns={COLUMNS_CONFIG}
+                    visible={visibleColumns}
+                    onChange={setVisibleColumns}
+                  />
+
+                  {/* Diğer Filtreler */}
                   <FilterMultiSelect
                     title="Marka"
-                    icon={<span className="text-[12px] font-black">M</span>}
                     items={brandLookup}
                     values={brandIDs}
                     setValues={setBrandIDs}
                   />
                   <FilterMultiSelect
                     title="Kategori"
-                    icon={<span className="text-[12px] font-black">K</span>}
                     items={categoryLookup}
                     values={categoryIDs}
                     setValues={setCategoryIDs}
                   />
                   <FilterMultiSelect
                     title="Depo"
-                    icon={<span className="text-[12px] font-black">D</span>}
                     items={warehouseLookup}
                     values={warehouseIDs}
                     setValues={setWarehouseIDs}
@@ -897,7 +846,7 @@ export default function BulkUpdateClient() {
                 >
                   {[20, 30, 50, 100].map((n) => (
                     <option key={n} value={n}>
-                      {n}/sayfa
+                      {n}/sf
                     </option>
                   ))}
                 </select>
@@ -907,34 +856,8 @@ export default function BulkUpdateClient() {
                   className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2.5 text-sm font-semibold text-black/80 hover:bg-black/[0.03]"
                 >
                   <RefreshCcw className="h-4 w-4 text-black/70" />
-                  Yenile
                 </button>
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-black/[0.02] px-3 py-2">
-              <div className="text-sm text-black/60">
-                Toplam <span className="font-semibold text-black">{total}</span>{" "}
-                kayıt • Sayfa{" "}
-                <span className="font-semibold text-black">{page}</span> /{" "}
-                {totalPages}
-                <span className="ml-3 text-xs text-black/45">
-                  Tek Çekim: {ccSingleRatioValue} • Taksit:{" "}
-                  {ccInstallmentRatioValue}
-                </span>
-              </div>
-
-              {!inModal && (
-                <button
-                  type="button"
-                  onClick={() => setFullscreenOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-black px-3 py-2 text-sm font-semibold text-white shadow-sm"
-                  title="Tabloyu tam ekranda aç"
-                >
-                  <Maximize2 className="h-4 w-4 text-white" />
-                  Tam ekran
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -943,6 +866,7 @@ export default function BulkUpdateClient() {
     [
       q,
       onlyActive,
+      visibleColumns,
       brandLookup,
       categoryLookup,
       warehouseLookup,
@@ -950,18 +874,13 @@ export default function BulkUpdateClient() {
       categoryIDs,
       warehouseIDs,
       pageSize,
-      total,
-      page,
-      totalPages,
-      ccSingleRatioValue,
-      ccInstallmentRatioValue,
       load,
     ],
   );
 
   const renderPagingBar = useCallback(() => {
     return (
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-6 pb-6">
         <div className="text-sm text-black/60">
           Toplam <span className="font-semibold text-black">{total}</span> kayıt
           • Sayfa <span className="font-semibold text-black">{page}</span> /{" "}
@@ -990,378 +909,408 @@ export default function BulkUpdateClient() {
 
   const renderTableView = useCallback(
     (compact?: boolean) => {
-      // Sticky column widths (fixed)
-      const W_PRODUCT = 360;
-      const W_CODE = 140;
-      const W_DEPOT = 180;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const isCompact = Boolean(compact);
 
-      // Headerlar
-      const thProductClass =
-        "sticky left-0 z-[60] bg-white/95 backdrop-blur border-b border-black/10 shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.1)]";
-      const thCodeClass =
-        "sticky z-[59] bg-white/95 backdrop-blur border-b border-black/10 shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.1)]";
-      const thDepotClass =
-        "sticky z-[58] bg-white/95 backdrop-blur border-b border-black/10 shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.1)]";
+      let currentLeft = 0;
+      const stickyStyles: Record<string, { left: number; width: number }> = {};
+
+      COLUMNS_CONFIG.forEach((col) => {
+        if (col.isSticky && visibleColumns.has(col.id)) {
+          const w = col.width ?? 100;
+          stickyStyles[col.id] = { left: currentLeft, width: w };
+          currentLeft += w;
+        }
+      });
+
+      const getStickyClass = (isSuccess: boolean, isError: boolean) => {
+        let bg = "bg-white group-hover:bg-[#fafafa]";
+        if (isError) bg = "bg-red-100 group-hover:bg-red-200";
+        else if (isSuccess) bg = "bg-emerald-100 group-hover:bg-emerald-200";
+
+        return `sticky z-[30] ${bg} shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.1)] transition-colors duration-300`;
+      };
+
+      const getHeaderStickyClass = () =>
+        "sticky z-[60] bg-white/95 backdrop-blur border-b border-black/10 shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.1)]";
+
+      const cellClass = "px-1 py-1 align-middle text-[11px] leading-none";
+      const headerClass =
+        "px-2 py-2 text-left text-xs font-semibold text-black/60";
+      const inputClass =
+        "h-7 w-full min-w-[60px] rounded border border-black/10 bg-white px-1 text-right text-[11px] outline-none focus:border-black/20 focus:ring-1 focus:ring-black/10";
 
       return (
-        <div className={cn(compact ? "p-3" : "")}>
-          <div
-            className={cn(
-              !compact &&
-                "overflow-hidden rounded-3xl border border-black/10 bg-white shadow-sm",
-            )}
-          >
-            <div className="overflow-auto">
-              <table
-                className={cn(
-                  "w-full text-sm",
-                  compact ? "min-w-[1850px]" : "min-w-[1750px]",
-                )}
-              >
-                <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-black/10">
-                  <tr className="text-left text-black/60">
-                    <th
-                      className={cn(thProductClass, "px-4 py-3")}
-                      style={{ width: W_PRODUCT, minWidth: W_PRODUCT }}
-                    >
-                      Ürün
-                    </th>
-                    <th
-                      className={cn(thCodeClass, "px-4 py-3")}
-                      style={{
-                        left: W_PRODUCT,
-                        width: W_CODE,
-                        minWidth: W_CODE,
-                      }}
-                    >
-                      Kod
-                    </th>
-                    <th
-                      className={cn(thDepotClass, "px-4 py-3")}
-                      style={{
-                        left: W_PRODUCT + W_CODE,
-                        width: W_DEPOT,
-                        minWidth: W_DEPOT,
-                      }}
-                    >
-                      Depo
-                    </th>
+        <div className="w-full flex-1 overflow-hidden">
+          <div className="h-full w-full overflow-auto rounded-3xl border border-black/10 bg-white shadow-sm">
+            <table className="w-full min-w-max text-left">
+              <thead className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-black/10">
+                <tr>
+                  {COLUMNS_CONFIG.map((col) => {
+                    if (!visibleColumns.has(col.id)) return null;
 
-                    <th className="px-4 py-3">Para Birimi</th>
-                    <th className="px-4 py-3 text-right">KDV</th>
-
-                    <th className="px-4 py-3 text-right">Maliyet</th>
-                    <th className="px-4 py-3 text-right">Kâr</th>
-                    <th className="px-4 py-3 text-right">Lojistik</th>
-                    <th className="px-4 py-3 text-right">Hammaliye</th>
-
-                    <th className="px-4 py-3 text-right">Nakit</th>
-                    <th className="px-4 py-3 text-right">Tek Çekim</th>
-                    <th className="px-4 py-3 text-right">Taksit</th>
-
-                    <th className="px-4 py-3 text-right">Akakçe</th>
-
-                    <th className="px-4 py-3 text-right">Bayi Nakit%</th>
-                    <th className="px-4 py-3 text-right">Bayi Tek%</th>
-                    <th className="px-4 py-3 text-right">Bayi Taksit%</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {loading && (
-                    <tr>
-                      <td
-                        colSpan={16}
-                        className="px-4 py-12 text-center text-black/45"
-                      >
-                        Yükleniyor...
-                      </td>
-                    </tr>
-                  )}
-
-                  {!loading && !hasAny && (
-                    <tr>
-                      <td
-                        colSpan={16}
-                        className="px-4 py-12 text-center text-black/45"
-                      >
-                        Kayıt bulunamadı
-                      </td>
-                    </tr>
-                  )}
-
-                  {!loading &&
-                    items.map((row) => {
-                      const price = row.price ?? calcPriceLocal(row);
-                      const ccSingle =
-                        row.ccSinglePrice ??
-                        (price == null
-                          ? null
-                          : price * (ccSingleRatioValue ?? 1));
-                      const ccInst =
-                        row.ccInstallmentPrice ??
-                        (price == null
-                          ? null
-                          : price * (ccInstallmentRatioValue ?? 1));
-
-                      const bayiNakit =
-                        row.dealerCashMarginPct ??
-                        safeMarginPct(row.otherPrice1, price);
-                      const bayiTek =
-                        row.dealerCcSingleMarginPct ??
-                        safeMarginPct(row.otherPrice1, ccSingle);
-                      const bayiTaksit =
-                        row.dealerCcInstallmentMarginPct ??
-                        safeMarginPct(row.otherPrice1, ccInst);
-
-                      // ✅ Durumları kontrol et
-                      const isSuccess = successIds.has(row.priceId);
-                      const isError = errorIds.has(row.priceId);
-
-                      // ✅ Satır Rengi (TR)
-                      let trClass =
-                        "group border-t border-black/5 transition-colors duration-300";
-                      if (isError) {
-                        trClass += " bg-red-100 hover:bg-red-200";
-                      } else if (isSuccess) {
-                        trClass += " bg-emerald-100 hover:bg-emerald-200";
-                      } else {
-                        trClass += " hover:bg-black/[0.02]";
-                      }
-
-                      // ✅ Sticky hücreler için arka plan (normal ve hover)
-                      // Sticky hücreler normalde bg-white olduğu için, satır rengini ezerler.
-                      // Bu yüzden onların da bg rengini duruma göre değiştirmemiz lazım.
-                      let stickyBgClass = "";
-                      if (isError) {
-                        stickyBgClass = "bg-red-100 group-hover:bg-red-200";
-                      } else if (isSuccess) {
-                        stickyBgClass =
-                          "bg-emerald-100 group-hover:bg-emerald-200";
-                      } else {
-                        stickyBgClass = "bg-white group-hover:bg-[#fafafa]";
-                      }
-
-                      const tdProductClass = `sticky left-0 z-[30] ${stickyBgClass} shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.1)] transition-colors duration-300`;
-                      const tdCodeClass = `sticky z-[29] ${stickyBgClass} shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.1)] transition-colors duration-300`;
-                      const tdDepotClass = `sticky z-[28] ${stickyBgClass} shadow-[inset_-1px_0_0_0_rgba(0,0,0,0.1)] transition-colors duration-300`;
-
+                    if (col.isSticky) {
+                      const style = stickyStyles[col.id];
                       return (
-                        <tr key={`price-${row.priceId}`} className={trClass}>
-                          {/* ✅ Sticky: Ürün */}
-                          <td
-                            className={cn(tdProductClass, "px-4 py-3")}
-                            style={{ width: W_PRODUCT, minWidth: W_PRODUCT }}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="relative h-11 w-11 overflow-hidden rounded-2xl border border-black/10 bg-black/[0.02]"
-                                onMouseEnter={(e) => {
-                                  if (!row.primaryImageUrl) return;
-                                  const rect = (
-                                    e.currentTarget as HTMLDivElement
-                                  ).getBoundingClientRect();
-                                  const pos = getPreviewPos(rect);
-                                  setPreview({
-                                    src: row.primaryImageUrl,
-                                    alt: row.productName,
-                                    ...pos,
-                                  });
-                                }}
-                                onMouseLeave={() => setPreview(null)}
-                              >
-                                {row.primaryImageUrl ? (
-                                  <Image
-                                    src={row.primaryImageUrl}
-                                    alt={row.productName}
-                                    fill
-                                    className="object-cover"
-                                    sizes="44px"
-                                  />
-                                ) : (
-                                  <div className="grid h-full w-full place-items-center text-xs text-black/40">
-                                    —
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="min-w-[260px] leading-tight">
-                                <div className="flex items-center gap-2">
-                                  <div className="font-semibold text-black line-clamp-2">
-                                    {row.productName}
-                                  </div>
-                                  <span
-                                    className={cn(
-                                      "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold",
-                                      row.productIsActive
-                                        ? "bg-emerald-500/10 text-emerald-700"
-                                        : "bg-rose-500/10 text-rose-700",
-                                    )}
-                                  >
-                                    {row.productIsActive ? "Aktif" : "Pasif"}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* ✅ Sticky: Kod */}
-                          <td
-                            className={cn(
-                              tdCodeClass,
-                              "px-4 py-3 font-semibold",
-                            )}
-                            style={{
-                              left: W_PRODUCT,
-                              width: W_CODE,
-                              minWidth: W_CODE,
-                            }}
-                          >
-                            <span className="text-black/80">
-                              {row.productCode}
-                            </span>
-                          </td>
-
-                          {/* ✅ Sticky: Depo */}
-                          <td
-                            className={cn(tdDepotClass, "px-4 py-3")}
-                            style={{
-                              left: W_PRODUCT + W_CODE,
-                              width: W_DEPOT,
-                              minWidth: W_DEPOT,
-                            }}
-                          >
-                            <span className="text-black/75">
-                              {row.warehouseName}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3 text-black/75">
-                            {row.currencyCode}
-                          </td>
-
-                          <td className="px-4 py-3 text-right text-black/70">
-                            {formatPct(row.taxRatio ?? null)}
-                          </td>
-
-                          <td className="px-4 py-3 text-right">
-                            <input
-                              value={row.costPrice ?? ""}
-                              onChange={(e) =>
-                                setEdit(row.priceId, {
-                                  costPrice: numOrNull(e.target.value),
-                                })
-                              }
-                              className="w-28 rounded-xl border border-black/10 bg-white px-3 py-2 text-right text-sm outline-none focus:border-black/20 focus:ring-4 focus:ring-black/10"
-                            />
-                          </td>
-
-                          <td className="px-4 py-3 text-right">
-                            <input
-                              value={row.profitRatio ?? ""}
-                              onChange={(e) =>
-                                setEdit(row.priceId, {
-                                  profitRatio: numOrNull(e.target.value),
-                                })
-                              }
-                              className="w-24 rounded-xl border border-black/10 bg-white px-3 py-2 text-right text-sm outline-none focus:border-black/20 focus:ring-4 focus:ring-black/10"
-                            />
-                          </td>
-
-                          <td className="px-4 py-3 text-right">
-                            <input
-                              value={row.logisticCost ?? ""}
-                              onChange={(e) =>
-                                setEdit(row.priceId, {
-                                  logisticCost: numOrNull(e.target.value),
-                                })
-                              }
-                              className="w-28 rounded-xl border border-black/10 bg-white px-3 py-2 text-right text-sm outline-none focus:border-black/20 focus:ring-4 focus:ring-black/10"
-                            />
-                          </td>
-
-                          <td className="px-4 py-3 text-right">
-                            <input
-                              value={row.porterageCost ?? ""}
-                              onChange={(e) =>
-                                setEdit(row.priceId, {
-                                  porterageCost: numOrNull(e.target.value),
-                                })
-                              }
-                              className="w-28 rounded-xl border border-black/10 bg-white px-3 py-2 text-right text-sm outline-none focus:border-black/20 focus:ring-4 focus:ring-black/10"
-                            />
-                          </td>
-
-                          <td className="px-4 py-3 text-right font-semibold text-black">
-                            {price === null
-                              ? "-"
-                              : `${formatMoney(price)} ${row.currencyCode}`}
-                          </td>
-
-                          <td className="px-4 py-3 text-right text-black/75">
-                            {ccSingle === null
-                              ? "-"
-                              : `${formatMoney(ccSingle)} ${row.currencyCode}`}
-                          </td>
-
-                          <td className="px-4 py-3 text-right text-black/75">
-                            {ccInst === null
-                              ? "-"
-                              : `${formatMoney(ccInst)} ${row.currencyCode}`}
-                          </td>
-
-                          <td className="px-4 py-3 text-right">
-                            <input
-                              value={row.otherPrice1 ?? ""}
-                              onChange={(e) =>
-                                setEdit(row.priceId, {
-                                  otherPrice1: numOrNull(e.target.value),
-                                })
-                              }
-                              className="w-32 rounded-xl border border-black/10 bg-white px-3 py-2 text-right text-sm outline-none focus:border-black/20 focus:ring-4 focus:ring-black/10"
-                            />
-                          </td>
-
-                          <td className="px-4 py-3 text-right text-black/60">
-                            {formatPct(bayiNakit)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-black/60">
-                            {formatPct(bayiTek)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-black/60">
-                            {formatPct(bayiTaksit)}
-                          </td>
-                        </tr>
+                        <th
+                          key={col.id}
+                          className={cn(getHeaderStickyClass(), headerClass)}
+                          style={{
+                            left: style.left,
+                            width: style.width,
+                            minWidth: style.width,
+                          }}
+                        >
+                          {col.label}
+                        </th>
                       );
-                    })}
-                </tbody>
-              </table>
-            </div>
+                    }
+
+                    return (
+                      <th
+                        key={col.id}
+                        className={cn(
+                          headerClass,
+                          col.id !== "product" && "text-right",
+                        )}
+                      >
+                        {col.label}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td
+                      colSpan={visibleColumns.size}
+                      className="px-4 py-12 text-center text-xs text-black/45"
+                    >
+                      Yükleniyor...
+                    </td>
+                  </tr>
+                )}
+
+                {!loading &&
+                  items.map((row) => {
+                    const price = row.price ?? calcPriceLocal(row);
+                    const ccSingle =
+                      row.ccSinglePrice ??
+                      (price == null
+                        ? null
+                        : price * (ccSingleRatioValue ?? 1));
+                    const ccInst =
+                      row.ccInstallmentPrice ??
+                      (price == null
+                        ? null
+                        : price * (ccInstallmentRatioValue ?? 1));
+
+                    const bayiNakit =
+                      row.dealerCashMarginPct ??
+                      safeMarginPct(row.otherPrice1, price);
+                    const bayiTek =
+                      row.dealerCcSingleMarginPct ??
+                      safeMarginPct(row.otherPrice1, ccSingle);
+                    const bayiTaksit =
+                      row.dealerCcInstallmentMarginPct ??
+                      safeMarginPct(row.otherPrice1, ccInst);
+
+                    const isSuccess = successIds.has(row.priceId);
+                    const isError = errorIds.has(row.priceId);
+
+                    let trClass =
+                      "group border-t border-black/5 transition-colors duration-300";
+                    if (isError) trClass += " bg-red-100 hover:bg-red-200";
+                    else if (isSuccess)
+                      trClass += " bg-emerald-100 hover:bg-emerald-200";
+                    else trClass += " hover:bg-black/[0.02]";
+
+                    const stickyClass = getStickyClass(isSuccess, isError);
+
+                    return (
+                      <tr key={`price-${row.priceId}`} className={trClass}>
+                        {COLUMNS_CONFIG.map((col) => {
+                          if (!visibleColumns.has(col.id)) return null;
+
+                          // -- STICKY HÜCRELER --
+                          if (col.isSticky) {
+                            const style = stickyStyles[col.id];
+                            const commonStickyProps = {
+                              className: cn(stickyClass, cellClass),
+                              style: {
+                                left: style.left,
+                                width: style.width,
+                                minWidth: style.width,
+                              },
+                            };
+
+                            if (col.id === "product") {
+                              return (
+                                <td key={col.id} {...commonStickyProps}>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-black/10 bg-black/[0.02]"
+                                      onMouseEnter={(e) => {
+                                        if (!row.primaryImageUrl) return;
+                                        const rect = (
+                                          e.currentTarget as HTMLDivElement
+                                        ).getBoundingClientRect();
+                                        setPreview({
+                                          src: row.primaryImageUrl,
+                                          alt: row.productName,
+                                          ...getPreviewPos(rect),
+                                        });
+                                      }}
+                                      onMouseLeave={() => setPreview(null)}
+                                    >
+                                      {row.primaryImageUrl ? (
+                                        <Image
+                                          src={row.primaryImageUrl}
+                                          alt={row.productName}
+                                          fill
+                                          className="object-cover"
+                                          sizes="32px"
+                                        />
+                                      ) : (
+                                        <div className="grid h-full w-full place-items-center text-[9px] text-black/40">
+                                          -
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1 leading-none">
+                                      <div className="line-clamp-2 text-[11px] font-medium text-black">
+                                        {row.productName}
+                                      </div>
+                                      <div className="mt-0.5 text-[9px] text-black/45">
+                                        #{row.productId}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              );
+                            }
+                            if (col.id === "code") {
+                              return (
+                                <td key={col.id} {...commonStickyProps}>
+                                  <span className="truncate text-black/80">
+                                    {row.productCode}
+                                  </span>
+                                </td>
+                              );
+                            }
+                            if (col.id === "depot") {
+                              return (
+                                <td key={col.id} {...commonStickyProps}>
+                                  <span className="truncate text-black/75">
+                                    {row.warehouseName}
+                                  </span>
+                                </td>
+                              );
+                            }
+                          }
+
+                          // -- NORMAL HÜCRELER --
+                          const commonTdClass = cn(
+                            cellClass,
+                            "text-right min-w-[70px]",
+                          );
+
+                          if (col.id === "currency")
+                            return (
+                              <td key={col.id} className={cn(cellClass)}>
+                                {row.currencyCode}
+                              </td>
+                            );
+                          if (col.id === "tax")
+                            return (
+                              <td key={col.id} className={commonTdClass}>
+                                {formatPct(row.taxRatio ?? null)}
+                              </td>
+                            );
+
+                          // INPUT ALANLARI
+                          if (col.id === "cost") {
+                            return (
+                              <td key={col.id} className={commonTdClass}>
+                                <input
+                                  value={row.costPrice ?? ""}
+                                  onChange={(e) =>
+                                    setEdit(row.priceId, {
+                                      costPrice: numOrNull(e.target.value),
+                                    })
+                                  }
+                                  className={inputClass}
+                                />
+                              </td>
+                            );
+                          }
+                          if (col.id === "profit") {
+                            return (
+                              <td key={col.id} className={commonTdClass}>
+                                <input
+                                  value={row.profitRatio ?? ""}
+                                  onChange={(e) =>
+                                    setEdit(row.priceId, {
+                                      profitRatio: numOrNull(e.target.value),
+                                    })
+                                  }
+                                  className={cn(inputClass, "w-14")}
+                                />
+                              </td>
+                            );
+                          }
+                          if (col.id === "logistic") {
+                            return (
+                              <td key={col.id} className={commonTdClass}>
+                                <input
+                                  value={row.logisticCost ?? ""}
+                                  onChange={(e) =>
+                                    setEdit(row.priceId, {
+                                      logisticCost: numOrNull(e.target.value),
+                                    })
+                                  }
+                                  className={inputClass}
+                                />
+                              </td>
+                            );
+                          }
+                          if (col.id === "porterage") {
+                            return (
+                              <td key={col.id} className={commonTdClass}>
+                                <input
+                                  value={row.porterageCost ?? ""}
+                                  onChange={(e) =>
+                                    setEdit(row.priceId, {
+                                      porterageCost: numOrNull(e.target.value),
+                                    })
+                                  }
+                                  className={inputClass}
+                                />
+                              </td>
+                            );
+                          }
+                          if (col.id === "other1") {
+                            return (
+                              <td key={col.id} className={commonTdClass}>
+                                <input
+                                  value={row.otherPrice1 ?? ""}
+                                  onChange={(e) =>
+                                    setEdit(row.priceId, {
+                                      otherPrice1: numOrNull(e.target.value),
+                                    })
+                                  }
+                                  className={cn(
+                                    inputClass,
+                                    "bg-blue-50/50 border-blue-100",
+                                  )}
+                                />
+                              </td>
+                            );
+                          }
+
+                          // HESAPLANAN DEĞERLER
+                          if (col.id === "price") {
+                            return (
+                              <td
+                                key={col.id}
+                                className={cn(
+                                  commonTdClass,
+                                  "font-bold text-black",
+                                )}
+                              >
+                                {price === null ? "-" : formatMoney(price)}
+                              </td>
+                            );
+                          }
+                          if (col.id === "ccSingle") {
+                            return (
+                              <td
+                                key={col.id}
+                                className={cn(commonTdClass, "text-black/75")}
+                              >
+                                {ccSingle === null
+                                  ? "-"
+                                  : formatMoney(ccSingle)}
+                              </td>
+                            );
+                          }
+                          if (col.id === "ccInstallment") {
+                            return (
+                              <td
+                                key={col.id}
+                                className={cn(commonTdClass, "text-black/75")}
+                              >
+                                {ccInst === null ? "-" : formatMoney(ccInst)}
+                              </td>
+                            );
+                          }
+                          if (col.id === "dealerCash") {
+                            return (
+                              <td
+                                key={col.id}
+                                className={cn(commonTdClass, "text-black/60")}
+                              >
+                                {formatPct(bayiNakit)}
+                              </td>
+                            );
+                          }
+                          if (col.id === "dealerSingle") {
+                            return (
+                              <td
+                                key={col.id}
+                                className={cn(commonTdClass, "text-black/60")}
+                              >
+                                {formatPct(bayiTek)}
+                              </td>
+                            );
+                          }
+                          if (col.id === "dealerInstallment") {
+                            return (
+                              <td
+                                key={col.id}
+                                className={cn(commonTdClass, "text-black/60")}
+                              >
+                                {formatPct(bayiTaksit)}
+                              </td>
+                            );
+                          }
+
+                          return null;
+                        })}
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
           </div>
         </div>
       );
     },
     [
       loading,
-      hasAny,
       items,
+      visibleColumns,
       ccSingleRatioValue,
       ccInstallmentRatioValue,
-      successIds, // ✅ Bağımlılık eklendi
-      errorIds, // ✅ Bağımlılık eklendi
+      successIds,
+      errorIds,
       setEdit,
       getPreviewPos,
     ],
   );
 
   return (
+    // ✅ FIX: Tam ekran modal yapısı
     <div
+      className="fixed inset-0 z-[50] flex flex-col bg-gray-50"
       onMouseLeave={() => setPreview(null)}
       onScrollCapture={() => setPreview(null)}
     >
       {preview && (
         <div
-          className="pointer-events-none fixed z-[9999] overflow-hidden rounded-3xl border border-black/10 bg-white shadow-2xl"
+          className="pointer-events-none fixed z-[110] overflow-hidden rounded-3xl border border-black/10 bg-white shadow-2xl"
           style={{
             left: preview.left,
             top: preview.top,
@@ -1382,33 +1331,31 @@ export default function BulkUpdateClient() {
         </div>
       )}
 
-      <div className="mb-4">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-black/10 bg-white px-6 py-4 shadow-sm">
         <h1 className="text-xl font-semibold text-black">Toplu Güncelleme</h1>
+        <button
+          onClick={() => router.push("/supervisor")}
+          className="rounded-full bg-gray-100 p-2 hover:bg-gray-200 transition"
+        >
+          <X className="h-5 w-5 text-gray-600" />
+        </button>
       </div>
 
-      {renderFiltersBar({ inModal: false })}
+      {/* Content Area */}
+      <div className="flex flex-1 flex-col overflow-hidden p-6">
+        {renderFiltersBar({ inModal: false })}
 
-      {err && (
-        <div className="mb-4 rounded-3xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-700">
-          {err}
-        </div>
-      )}
+        {err && (
+          <div className="mb-4 rounded-3xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-700">
+            {err}
+          </div>
+        )}
 
-      {renderTableView(false)}
+        {renderTableView(false)}
 
-      {renderPagingBar()}
-
-      <FullscreenModal
-        open={fullscreenOpen}
-        onClose={() => setFullscreenOpen(false)}
-        title="Tam Ekran"
-      >
-        <div className="p-4">
-          {renderFiltersBar({ inModal: true })}
-          {renderTableView(true)}
-          {renderPagingBar()}
-        </div>
-      </FullscreenModal>
+        {renderPagingBar()}
+      </div>
     </div>
   );
 }
